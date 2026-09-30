@@ -1,0 +1,27 @@
+# Audio credits
+
+Source: Freesound.org (API). The sea/weather/SFX files listed below are **CC0 /
+Public Domain** — no attribution is legally required and they may be used
+commercially. Kept here for records and to allow future swaps.
+
+| file | title | author | id |
+|------|-------|--------|----|
+| ocean_loop.mp3   | Gentle Ocean Waves Loop | kkenny101 | 852826 |
+| surf_loop.mp3    | Ambiance_Ocean_Praia_dos_Moinhos_Loop_Stereo_01 | Nox_Sound | 829626 |
+| wind_loop.mp3    | Strong Wind | florianreichelt | 459981 |
+| rain_loop.mp3    | Heavy Rain Long | presidentevil4zombie | 241196 |
+| gulls_loop.mp3   | Seagull Beach Ambience Loop | kkenny101 | 853455 |
+| cannon.mp3       | Cannon shot | SamsterBirdies | 467883 |
+| splash.mp3       | Big Water Splash | qubodup | 442773 |
+| hull_impact.mp3  | Wood impact 3 | deleted_user_2104797 | 325273 |
+| creak.mp3        | Creaking Wood 8 | Greg_Surr | 590158 |
+| thunder.mp3      | Closeup Thunder Strike 01 | loganzsound | 840628 |
+| gull.mp3         | R01-71-Close up Seagull | craigsmith | 479595 |
+| shanty.mp3       | coastalmandolin | mooncusser | 646002 |
+
+theme.mp3 is the HighSeaz title theme — a project-owned track (provided by the
+team), NOT a Freesound/CC0 asset. It is the menu music: it loops on every screen
+outside the live world (title / loading / shop / fleet / settings / how-to) and
+stops on Set Sail (see AudioSystem.setTheme). The in-world sea shanties are the
+separate rotating playlist (shanty_01..05), played only while sailing fast in fair
+weather.

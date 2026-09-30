@@ -1,0 +1,11 @@
+{
+	"example.scene": [
+		"example/fa4be5bf-7e53-4da5-8976-f2f037d975df.babylonbinarymeshdata",
+		"example/d2a60991-6acc-4d76-b3d8-67e1d6662870.babylonbinarymeshdata",
+		"example/0ba89c0a-1fc1-414a-af14-ffbc7ee3200d.babylonbinarymeshdata",
+		"assets/albedo.png",
+		"assets/country.env",
+		"assets/amiga.jpg",
+		"example.babylon"
+	]
+}

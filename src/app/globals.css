@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* Gamepad/keyboard menu navigation moves DOM focus between controls, so without
+   a loud focus ring the movement is invisible. A sky-blue outline contrasts with
+   both the gold buttons and the dark panels, so the focused control always shows.
+   Applied on plain :focus (not just :focus-visible) because focus() set from the
+   gamepad poll doesn't reliably trip the browser's focus-visible heuristic. */
+button:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus,
+[tabindex]:not([tabindex="-1"]):focus {
+  outline: 3px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+/* Menu selection buttons: the gold "selected" fill follows focus, so gamepad
+   D-pad/stick (see useGamepadNav) and the arrow keys visibly move the highlight
+   from one button to the next. The sky-blue outline is suppressed here because
+   the gold fill is the indicator; every other control keeps the outline above. */
+.hs-menu-btn:focus {
+  background: #e6c079 !important;
+  border-color: #e6c079 !important;
+  color: #0a1526 !important;
+  outline: none;
+}

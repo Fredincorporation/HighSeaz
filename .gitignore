@@ -1,0 +1,24 @@
+# Secrets / local env — NEVER commit. The server/.env and root .env.local can
+# hold the SERVER_ROLE / deployer private key. Keep them untracked.
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# Node / build output
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# Foundry
+contracts/out/
+contracts/cache/
+broadcast/
+
+# Logs & editor
+*.log
+.DS_Store

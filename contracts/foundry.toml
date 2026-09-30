@@ -1,0 +1,25 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+]
+# Allow the deploy script to persist the deployed addresses just outside the
+# contracts root (repo-root ./deployments/), which the relayer + wallet read.
+fs_permissions = [
+    { access = "read-write", path = "../deployments" },
+]
+
+# Deploy target: Robinhood Chain (testnet). Gas is paid in ETH; USDG is the
+# in-game ERC-20 value currency. RPC/keys are supplied via env, never committed.
+[rpc_endpoints]
+robinhood_testnet = "${RH_TESTNET_RPC_URL}"
+
+[etherscan]
+robinhood_testnet = { key = "${RH_ETHERSCAN_API_KEY}", url = "${RH_VERIFY_URL}" }
