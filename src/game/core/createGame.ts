@@ -569,9 +569,44 @@ export function createGame(canvas: HTMLCanvasElement, opts: GameOpts = {}): Game
 				if (evt.shipId === net.selfShipId) {
 					addShake(1.2);
 					hitStop = Math.max(hitStop, 0.12);
+					// Continuation nudge at the moment of sinking. Read the latest snapshot
+					// for this captain's OTHER afloat hulls (excluding the one just going
+					// down): if there's one, hand the captain straight to the Fleet panel so
+					// taking a new helm is one click; if there's none, tell them the wreck is
+					// towing to port to repair (the fleet-wipe check raises the pause menu a
+					// frame later once nothing is left to sail).
+					const addr = net.address?.toLowerCase();
+					const others = addr
+						? ships
+								.getLatestStates()
+								.filter(
+									(s) =>
+										s.ownerAddress?.toLowerCase() === addr &&
+										s.id !== evt.shipId &&
+										(s.status === "active" || s.status === "on_auto")
+								)
+						: [];
+					if (others.length > 0) {
+						ui.toast("She's going down — take the helm of another hull to keep sailing.", "#e6c079");
+						openFleet();
+					} else {
+						ui.toast("She's going down — your hull is being towed to port. Repair her at the dock to sail again.", "#e6c079");
+					}
 				}
 				break;
 			}
+			case "repair":
+				// Tell the captain honestly whether the harbour gave a full refit or just
+				// slapped on an emergency patch (they couldn't cover the fee — sunk broke).
+				if (evt.shipId === net.selfShipId) {
+					ui.toast(
+						evt.patched
+							? "Emergency patch — she's battered but afloat. Refit her properly once your purse recovers."
+							: "Refit complete — she's good as new.",
+						evt.patched ? "#ffcf8a" : "#9be8a0"
+					);
+				}
+				break;
 			case "muzzleFlash":
 				break;
 			case "fortImpact":

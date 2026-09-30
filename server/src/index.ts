@@ -289,7 +289,7 @@ wss.on("connection", (ws) => {
 			}
 			case "dock:repair": {
 				const id = client.shipId ?? msg.payload.shipId;
-				if (id && world.repair(id)) {
+				if (id && world.repair(id).ok) {
 					const tokenId = world.getShip(id)?.tokenId?.toString();
 					// Provenance (design spec: on-chain ship history) — this hull came
 					// back from the dead once. Fire-and-forget; tokenId is optional and

@@ -1227,21 +1227,33 @@ export class World {
 	}
 
 	/**
-	 * Bring a sunk hull back to service for a cargo fee from the purse (sunk ≠
-	 * burned: the hull returns, but the cost is paid from value you actually
-	 * landed). No-op if the hull isn't sunk/docked or the purse can't cover it.
+	 * Bring a sunk hull back to service at a dock (sunk ≠ burned: the hull returns,
+	 * but the cost is paid from value you actually landed). A captain who can cover
+	 * the fee gets a full refit. One who CANNOT — the sunk-with-an-empty-purse dead-
+	 * end, where their only hull is down and cargo is inert until they're afloat
+	 * again — is not stranded: the harbour patches her for whatever purse remains
+	 * (down to zero) and she sails BATTERED, a fraction of hull and sails. So getting
+	 * back to sea always costs something, and a deliberate self-sink is never free.
+	 * No-op if the hull isn't sunk/docked/owned.
 	 */
-	repair(shipId: string): boolean {
+	repair(shipId: string): { ok: boolean; patched: boolean } {
 		const ship = this.ships.get(shipId);
-		if (!ship || !ship.ownerAddress || ship.status !== "sunk_needs_repair") return false;
-		if (!this.portAt(ship.position.x, ship.position.z)) return false;
+		if (!ship || !ship.ownerAddress || ship.status !== "sunk_needs_repair") return { ok: false, patched: false };
+		if (!this.portAt(ship.position.x, ship.position.z)) return { ok: false, patched: false };
 		const rec = this.ledger(ship.ownerAddress);
-		const hullMax = SHIP_CLASSES[ship.shipClass].hullMax + this.bonuses(ship).hull;
+		const spec = SHIP_CLASSES[ship.shipClass];
+		const hullMax = spec.hullMax + this.bonuses(ship).hull;
 		const cost = Math.ceil(hullMax / 2);
-		if (rec.purse < cost) return false;
-		rec.purse -= cost;
-		ship.hull = hullMax;
-		ship.sails = SHIP_CLASSES[ship.shipClass].sailsMax;
+		const patched = rec.purse < cost;
+		if (!patched) {
+			rec.purse -= cost;
+			ship.hull = hullMax;
+			ship.sails = spec.sailsMax;
+		} else {
+			rec.purse = 0;
+			ship.hull = Math.max(1, Math.ceil(hullMax * 0.35));
+			ship.sails = Math.max(1, Math.ceil(spec.sailsMax * 0.35));
+		}
 		ship.status = "active";
 		// The debt is paid: drop the matching repair-debt entry so a future restart
 		// does not re-spawn this now-repaired hull as a wreck.
@@ -1250,7 +1262,8 @@ export class World {
 			(d) => (tid ? d.tokenId !== tid : !(d.tokenId === undefined && d.shipClass === ship.shipClass))
 		);
 		this.queuePlayer(ship.ownerAddress);
-		return true;
+		this.pendingEvents.push({ t: "repair", shipId, patched });
+		return { ok: true, patched };
 	}
 
 	/**

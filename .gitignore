@@ -1,5 +1,7 @@
 # Secrets / local env — NEVER commit. The server/.env and root .env.local can
-# hold the SERVER_ROLE / deployer private key. Keep them untracked.
+# hold the SERVER_ROLE / deployer private key and the Supabase service-role key.
+# Keep them untracked. (.env.* also covers .env.local; the ! lines re-allow the
+# committed .env.example templates.)
 .env
 .env.*
 !.env.example
@@ -14,11 +16,24 @@ build/
 .next/
 out/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Vercel (project link / local dev metadata — never commit)
+.vercel/
+
 # Foundry
 contracts/out/
 contracts/cache/
+contracts/broadcast/
 broadcast/
+coverage/
 
-# Logs & editor
+# Server runtime state (world persistence snapshot — regenerated, not source)
+server/world-state.json
+
+# Logs & editor / OS cruft
 *.log
+npm-debug.log*
 .DS_Store
+Thumbs.db

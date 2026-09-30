@@ -901,6 +901,10 @@ export type CombatEvent =
 	| { t: "hullImpact"; targetId: string; point: Vec3; damage: number }
 	| { t: "waterImpact"; point: Vec3 }
 	| { t: "sunk"; shipId: string; killerShipId?: string }
+	/** A hull came back from the dead at a dock. `patched` is true for the
+	 *  emergency-patch path (the owner couldn't cover a full refit and sailed away
+	 *  battered) — the client toasts the two outcomes differently. */
+	| { t: "repair"; shipId: string; patched: boolean }
 	/** A player shell that found a fort section: the client crumbles that piece. */
 	| { t: "fortImpact"; fortId: number; section: FortSectionKey; point: Vec3; damage: number }
 	/** The magazine went up — play the full-fort chain detonation. */
