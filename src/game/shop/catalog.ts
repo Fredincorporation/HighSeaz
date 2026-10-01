@@ -65,6 +65,11 @@ export const HULL_TILES: HullTile[] = [
 	{ cls: "imperial", label: "Imperial Man-o'-War", image: img("ship_imperial"), role: "The apex ship of the line." },
 ];
 
+/** The shop tile for a hull class (image + label), or undefined if unknown. */
+export function hullTile(cls: ShipClass): HullTile | undefined {
+	return HULL_TILES.find((h) => h.cls === cls);
+}
+
 /** The 6-decimal base-unit price of a hull class (shared with the store). */
 export function hullPrice(cls: ShipClass): bigint {
 	return HULL_PRICES[cls] ?? 0n;

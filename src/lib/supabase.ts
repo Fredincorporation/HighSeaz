@@ -35,22 +35,26 @@ export const supabase: SupabaseClient | null =
 export async function signInWithWallet(
 	addressHint?: string,
 	statement = "Sign in to HighSeaz"
-): Promise<{ address: string; isNew: boolean } | null> {
-	if (!supabase) return null;
+): Promise<{ address: string; isNew: boolean; error?: string } | null> {
+	if (!supabase) return { address: "", isNew: false, error: "Supabase not configured (NEXT_PUBLIC_SUPABASE_* unset)" };
 	try {
 		const { data, error } = await supabase.auth.signInWithWeb3({ chain: "ethereum", statement });
 		if (error || !data.session) {
-			if (error) console.warn("[supabase] web3 sign-in failed:", error.message);
-			return null;
+			const msg = error?.message ?? "no session returned";
+			console.warn("[supabase] web3 sign-in failed:", msg);
+			return { address: "", isNew: false, error: msg };
 		}
 		const meta = data.session.user.user_metadata as { provider_address?: string } | undefined;
 		const addr = (addressHint ?? meta?.provider_address ?? "").toLowerCase();
-		if (!addr) return { address: "", isNew: false };
+		if (!addr) return { address: "", isNew: false, error: "no address from session" };
 
 		// First-seen check + register. `players` RLS lets an authenticated user read
 		// and insert their own address row (see the SQL in the project notes).
 		const { data: existing, error: selErr } = await supabase.from("players").select("address").eq("address", addr).maybeSingle();
-		if (selErr) console.warn("[supabase] players select failed:", selErr.message);
+		if (selErr) {
+			console.warn("[supabase] players select failed:", selErr.message);
+			return { address: addr, isNew: false, error: `read players: ${selErr.message}` };
+		}
 		if (existing) return { address: addr, isNew: false };
 
 		const { error: insErr } = await supabase.from("players").insert({ address: addr });
@@ -58,11 +62,26 @@ export async function signInWithWallet(
 		// treat as returning so the intro doesn't double-fire.
 		if (insErr) {
 			console.warn("[supabase] players insert failed:", insErr.message);
-			return { address: addr, isNew: false };
+			return { address: addr, isNew: false, error: `insert players: ${insErr.message}` };
 		}
 		return { address: addr, isNew: true };
 	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 		console.warn("[supabase] web3 sign-in threw:", err);
-		return null;
+		return { address: "", isNew: false, error: msg };
+	}
+}
+
+/**
+ * Clear the Supabase Web3 session created by signInWithWallet. Fired alongside the
+ * injected-wallet disconnect so the identity is dropped too, not just the dApp's
+ * reference to the address. Never throws — disconnect must always succeed locally.
+ */
+export async function signOutWallet(): Promise<void> {
+	if (!supabase) return;
+	try {
+		await supabase.auth.signOut();
+	} catch (err) {
+		console.warn("[supabase] sign-out threw:", err);
 	}
 }

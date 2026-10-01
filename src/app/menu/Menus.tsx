@@ -198,6 +198,7 @@ export function TitleMenu({
 	onSettings,
 	onHowTo,
 	onConnect,
+	onDisconnect,
 	onShop,
 	onFleet,
 	onFaucet,
@@ -208,6 +209,7 @@ export function TitleMenu({
 	onSettings: () => void;
 	onHowTo: () => void;
 	onConnect: () => void;
+	onDisconnect: () => void;
 	onShop: () => void;
 	onFleet: () => void;
 	onFaucet: () => void;
@@ -252,13 +254,21 @@ export function TitleMenu({
 						<span className="text-[#c9d6e6]">Hulls owned</span>
 						<span className="font-mono text-[#8aa3bd]">{canPlay.ownsShip ? "Yes" : "None"}</span>
 					</div>
-					{!canPlay.connected && (
+					{!canPlay.connected ? (
 						<button
 							type="button"
 							onClick={onConnect}
 							className="mt-2 w-full rounded-lg border border-[rgba(150,190,225,0.35)] bg-[rgba(30,60,90,0.9)] px-3 py-2 text-sm font-bold text-[#eaf3ff] transition-colors hover:bg-[rgba(40,75,110,0.95)]"
 						>
 							Connect Wallet
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={onDisconnect}
+							className="mt-2 w-full rounded-lg border border-white/15 bg-transparent px-3 py-2 text-sm font-bold text-[#8aa3bd] transition-colors hover:border-[#ff9b9b]/50 hover:text-[#ff9b9b]"
+						>
+							Disconnect Wallet
 						</button>
 					)}
 				</div>
@@ -269,7 +279,7 @@ export function TitleMenu({
 
 // ---- Mobile landscape gate ------------------------------------------------
 
-export function LandscapeGate() {
+export function LandscapeGate({ onFullscreen }: { onFullscreen?: () => void }) {
 	return (
 		<Fullscreen>
 			<Panel>
@@ -278,10 +288,91 @@ export function LandscapeGate() {
 				<p className="mt-2 text-center text-sm text-[#8aa3bd]">
 					HighSeaz is sailed in landscape. Turn your phone sideways to play.
 				</p>
+				{onFullscreen && (
+					<button
+						type="button"
+						onClick={onFullscreen}
+						className="mt-5 w-full rounded-lg border border-[rgba(150,190,225,0.35)] bg-[rgba(30,60,90,0.9)] px-3 py-2 text-sm font-bold text-[#eaf3ff] transition-colors hover:bg-[rgba(40,75,110,0.95)]"
+					>
+						Go fullscreen (locks landscape)
+					</button>
+				)}
 			</Panel>
 		</Fullscreen>
 	);
 }
+
+// ---- Mobile "open in a wallet app" help ----------------------------------
+
+const WALLET_APPS = [
+	{ name: "MetaMask", blurb: "Wallet → browse the dApps tab." },
+	{ name: "Rabby", blurb: "Wallet → the browser (globe) tab." },
+	{ name: "Trust Wallet", blurb: "Wallet → dApps tab." },
+	{ name: "Coinbase Wallet", blurb: "Wallet → the Discover tab." },
+];
+
+/**
+ * Shown on a phone whose plain browser has no injected wallet (so Connect can't
+ * work here). HighSeaz runs on a custom testnet chain, so the reliable way to
+ * play on mobile is to open this page INSIDE a wallet app's built-in browser,
+ * where the wallet is already injected and the network prompt works. We hand the
+ * player the current URL to open there.
+ */
+export function WalletHelpPanel({ onClose }: { onClose: () => void }) {
+	const url = typeof window !== "undefined" ? window.location.href : "";
+	const copy = () => {
+		void navigator.clipboard?.writeText(url).catch(() => {
+			/* clipboard blocked on some in-app browsers — the URL is shown for manual copy */
+		});
+	};
+	return (
+		<Fullscreen>
+			<Panel wide>
+				<h2 className="text-center text-2xl font-black tracking-[0.12em] text-[#eaf3ff]">OPEN IN A WEB3 WALLET</h2>
+				<p className="mt-2 text-center text-sm text-[#8aa3bd]">
+					Your browser can't connect a wallet directly. Open HighSeaz inside a wallet app to play:
+				</p>
+				<ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-[#c9d6e6]">
+					<li>Copy the link below.</li>
+					<li>Open your wallet app's built-in browser.</li>
+					<li>Paste the link and visit the page — then tap Connect Wallet as usual.</li>
+				</ol>
+				<div className="mt-4 flex items-center gap-2">
+					<input
+						readOnly
+						value={url}
+						onFocus={(e) => e.currentTarget.select()}
+						className="min-w-0 flex-1 rounded-lg border border-white/15 bg-[rgba(6,11,20,0.9)] px-3 py-2 font-mono text-xs text-[#eaf3ff]"
+					/>
+					<button
+						type="button"
+						onClick={copy}
+						className="shrink-0 rounded-lg border border-[rgba(150,190,225,0.35)] bg-[rgba(30,60,90,0.9)] px-3 py-2 text-sm font-bold text-[#eaf3ff] hover:bg-[rgba(40,75,110,0.95)]"
+					>
+						Copy
+					</button>
+				</div>
+				<div className="mt-4 grid grid-cols-2 gap-2">
+					{WALLET_APPS.map((w) => (
+						<div key={w.name} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+							<div className="text-sm font-bold text-[#eaf3ff]">{w.name}</div>
+							<div className="text-[11px] text-[#8aa3bd]">{w.blurb}</div>
+						</div>
+					))}
+				</div>
+				<button
+					type="button"
+					onClick={onClose}
+					autoFocus
+					className="mt-5 w-full rounded-lg border border-white/15 bg-[rgba(30,60,90,0.9)] px-3 py-2 text-sm font-bold text-[#eaf3ff] hover:bg-[rgba(40,75,110,0.95)]"
+				>
+					← Back
+				</button>
+			</Panel>
+		</Fullscreen>
+	);
+}
+
 
 // ---- Settings ------------------------------------------------------------
 

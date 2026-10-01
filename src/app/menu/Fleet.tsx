@@ -3,7 +3,8 @@
 import { type PlayerPublicState } from "@shared/index";
 import { SHOP_ITEMS, type ShopSlot } from "@shared/shop";
 import { type GameHandle } from "@/game";
-import { effectLabel } from "@/game/shop/catalog";
+import { effectLabel, hullTile } from "@/game/shop/catalog";
+import { asset } from "@/game/core/assets";
 
 /**
  * Fleet & Ledger — the player's holdings on one page, distinct from the Shop
@@ -59,6 +60,11 @@ export function FleetPanel({
 	onClose: () => void;
 }) {
 	const hulls = handle ? handle.ownedHullCount() : 0;
+	const ownedHulls = handle ? handle.getOwnedHulls() : [];
+
+	// Hulls only carry a class (and thus a picture) while they're live on the sea,
+	// so before Set Sail we know the wallet owns N but can't draw them yet.
+	const hullsAwaitingSail = ownedHulls.length === 0 && hulls > 0;
 
 	return (
 		<div className="absolute inset-0 z-50 flex flex-col bg-[rgba(4,9,16,0.94)] backdrop-blur-[2px]">
@@ -83,6 +89,44 @@ export function FleetPanel({
 					<Stat label="Ghost fleet" value={ledger ? String(ledger.fleet.length) : "—"} />
 					<Stat label="Wallet" value={wallet ? `${wallet.slice(0, 4)}…${wallet.slice(-4)}` : "None"} />
 				</div>
+
+				{ownedHulls.length > 0 && (
+					<section className="mt-6">
+						<h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#8aa3bd]">Your hulls</h2>
+						<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+							{ownedHulls.map((h) => {
+								const tile = hullTile(h.shipClass);
+								return (
+									<div
+										key={h.shipId}
+										className={`flex items-center gap-2 overflow-hidden rounded-xl border bg-[rgba(10,20,34,0.85)] p-2 ${
+											h.isSelf ? "border-[#38bdf8]" : "border-white/10"
+										}`}
+									>
+										{tile && (
+											<img src={asset(tile.image)} alt={tile.label} className="h-14 w-14 shrink-0 object-contain" draggable={false} />
+										)}
+										<div className="min-w-0">
+											<div className="truncate text-sm font-bold text-[#eaf3ff]" title={h.name}>
+												{h.name}
+											</div>
+											<div className="truncate text-[11px] text-[#c9d6e6]">{tile?.label ?? h.shipClass}</div>
+											<div className="text-[11px]" style={{ color: h.isSelf ? "#38bdf8" : "#8aa3bd" }}>
+												{h.isSelf ? "at the helm" : "auto-sailing"}
+											</div>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</section>
+				)}
+
+				{hullsAwaitingSail && (
+					<p className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#8aa3bd]">
+						You own {hulls} hull{hulls === 1 ? "" : "s"} — set sail to bring them onto the sea and see each one here.
+					</p>
+				)}
 
 				{!ledger && (
 					<p className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#8aa3bd]">
@@ -135,22 +179,6 @@ export function FleetPanel({
 							</div>
 						</section>
 
-						{/* Ghost fleet */}
-						<section className="mt-6">
-							<h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[#8aa3bd]">Ghost fleet (auto-sailing)</h2>
-							{ledger.fleet.length === 0 ? (
-								<p className="text-sm text-[#8aa3bd]">No hulls are sailing the trade routes for you right now.</p>
-							) : (
-								<div className="flex flex-wrap gap-2">
-									{ledger.fleet.map((id) => (
-										<span key={id} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-mono text-[#c9d6e6]">
-											hull #{id}
-										</span>
-									))}
-								</div>
-							)}
-						</section>
-
 						{/* Owned goods, grouped by slot, showing what's equipped */}
 						<section className="mt-6">
 							<h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#8aa3bd]">Owned goods</h2>
@@ -171,7 +199,7 @@ export function FleetPanel({
 																equipped ? "border-[#38bdf8]" : "border-white/10"
 															}`}
 														>
-															<img src={it.image} alt={it.name} className="h-12 w-12 shrink-0 object-contain" draggable={false} />
+															<img src={asset(it.image)} alt={it.name} className="h-12 w-12 shrink-0 object-contain" draggable={false} />
 															<div className="min-w-0">
 																<div className="truncate text-xs font-bold text-[#eaf3ff]" title={it.name}>
 																	{it.name}

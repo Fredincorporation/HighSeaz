@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { createGame, type GameHandle, type GamePhase } from "@/game";
 import { type PlayerPublicState } from "@shared/index";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type GameSettings } from "@/game/settings";
-import { signInWithWallet } from "@/lib/supabase";
+import { signInWithWallet, signOutWallet } from "@/lib/supabase";
 import { ShopPage } from "./menu/Shop";
 import { FleetPanel } from "./menu/Fleet";
 import { useGamepadNav } from "./menu/useGamepadNav";
-import { HowToPanel, LandscapeGate, LoadingScreen, SettingsPanel, TitleMenu, FaucetPanel, WaitingScreen, IntroVideo } from "./menu/Menus";
+import { HowToPanel, LandscapeGate, LoadingScreen, SettingsPanel, TitleMenu, FaucetPanel, WaitingScreen, IntroVideo, WalletHelpPanel } from "./menu/Menus";
 
 type Overlay = "settings" | "howto" | "faucet" | null;
 
@@ -38,11 +38,16 @@ export default function Home() {
 	const [ledger, setLedger] = useState<PlayerPublicState | null>(null);
 	// Mobile landscape gate: block play until a touch device is turned sideways.
 	const [portrait, setPortrait] = useState(false);
+	// Whether this is a touch device (drives the mobile wallet-help path below).
+	const [mobile, setMobile] = useState(false);
 	// Cinematic intro, played only when a wallet authenticates for the FIRST TIME
 	// EVER — Supabase's `players` table is the source of truth (the intro fires when
 	// signInWithWallet inserts a brand-new address row, see the connect handler).
 	// So a returning captain never sees it again, on any device.
 	const [introOpen, setIntroOpen] = useState(false);
+	// Mobile, wallet-less browser: show the "open in a wallet app" help instead of a
+	// dead Connect button (a phone's plain browser has no injected provider).
+	const [walletHelp, setWalletHelp] = useState(false);
 
 	// Boot the engine once. StrictMode mounts/unmounts/remounts, so the cleanup
 	// must dispose synchronously or two engines + two WebSocket clients collide.
@@ -123,6 +128,7 @@ export default function Home() {
 		const isTouch =
 			typeof window !== "undefined" &&
 			(window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window);
+		setMobile(isTouch);
 		const check = () => setPortrait(isTouch && window.innerHeight > window.innerWidth);
 		check();
 		window.addEventListener("resize", check);
@@ -134,12 +140,22 @@ export default function Home() {
 	}, []);
 
 	function requestLandscape(): void {
-		// screen.orientation.lock only succeeds in fullscreen; best-effort, ignored
-		// on desktop/iOS where it's unsupported (the rotate overlay still nudges).
-		const so = (screen as unknown as { orientation?: { lock?: (o: string) => Promise<void> } }).orientation;
-		so?.lock?.("landscape").catch(() => {
-			/* unsupported — rely on the rotate-your-device overlay */
-		});
+		// screen.orientation.lock only succeeds in fullscreen, so enter fullscreen
+		// first (best-effort) then lock. Ignored on desktop/iOS where lock is
+		// unsupported — the rotate overlay still nudges there.
+		const el = document.documentElement as HTMLElement & {
+			webkitRequestFullscreen?: () => Promise<void>;
+			requestFullscreen?: () => Promise<void>;
+		};
+		const fs = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
+		const lock = () => {
+			const so = (screen as unknown as { orientation?: { lock?: (o: string) => Promise<void> } }).orientation;
+			so?.lock?.("landscape").catch(() => {
+				/* unsupported — rely on the rotate-your-device overlay */
+			});
+		};
+		if (fs?.then) fs.then(lock).catch(() => {});
+		else lock();
 	}
 
 	// Cosmetic loading bar: fill to 100%, then hold until the first frame is ready.
@@ -167,6 +183,12 @@ export default function Home() {
 	const play = () => gameRef.current?.startPlaying();
 	const connect = () => {
 		void (async () => {
+			// On a phone browser with no injected wallet, Connect can't work here —
+			// route the player to open the page inside a wallet app instead.
+			if (mobile && !("ethereum" in window)) {
+				setWalletHelp(true);
+				return;
+			}
 			const a = await gameRef.current?.connectWallet();
 			setWallet(a ?? null);
 			refreshEntitlement();
@@ -177,8 +199,19 @@ export default function Home() {
 			if (a) {
 				const res = await signInWithWallet(a);
 				if (res?.isNew) setIntroOpen(true);
+				// Surface the reason a sign-in/registration failed so it's actionable
+				// (commonly: the Supabase Web3 provider doesn't allow this chain ID, or
+				// the signature was declined). A returning wallet has no error → silent.
+				else if (res?.error) gameRef.current?.toast(`Wallet login: ${res.error}`, "#ff9b9b");
 			}
 		})();
+	};
+	const disconnect = () => {
+		gameRef.current?.disconnectWallet();
+		// onWallet(null) already resets wallet/canPlay state; just drop the session.
+		setShopMode(false);
+		setFleetMode(false);
+		void signOutWallet();
 	};
 	const openShop = () => {
 		requestLandscape();
@@ -221,7 +254,8 @@ export default function Home() {
 			{showLoading && <LoadingScreen progress={progress} />}
 			{showWaiting && <WaitingScreen onCancel={() => gameRef.current?.cancelJoin()} />}
 			{introOpen && <IntroVideo onClose={() => setIntroOpen(false)} />}
-			{portrait && !showLoading && !showWaiting && <LandscapeGate />}
+			{portrait && !showLoading && !showWaiting && <LandscapeGate onFullscreen={requestLandscape} />}
+			{walletHelp && <WalletHelpPanel onClose={() => setWalletHelp(false)} />}
 			<div ref={overlayRef} className="contents">
 				{showTitle && (
 					<TitleMenu
@@ -229,6 +263,7 @@ export default function Home() {
 						onSettings={() => setOverlay("settings")}
 						onHowTo={() => setOverlay("howto")}
 						onConnect={connect}
+						onDisconnect={disconnect}
 						onShop={openShop}
 						onFleet={() => setFleetMode(true)}
 						onFaucet={() => setOverlay("faucet")}

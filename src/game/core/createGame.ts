@@ -101,6 +101,11 @@ export interface GameHandle {
 	/** Prompt the injected wallet (MetaMask/Rabby) to connect and adopt its account
 	 *  (title-screen "Connect Wallet" button). Returns the address, or null. */
 	connectWallet: () => Promise<string | null>;
+	/** Drop the connected wallet reference (title-screen "Disconnect" button). Clears
+	 *  the React wallet state and the buy-to-play gate via onWallet(null). */
+	disconnectWallet: () => void;
+	/** Show a transient HUD toast (used to surface e.g. a Supabase sign-in failure). */
+	toast: (msg: string, color?: string) => void;
 	/** Current gamepad state for the settings panel. Reflects the last browser
 	 *  `gamepadconnected` event and any pad polled on startup. */
 	getGamepadStatus: () => { connected: boolean; id: string | null };
@@ -122,6 +127,9 @@ export interface GameHandle {
 	getLedger: () => PlayerPublicState | null;
 	/** On-chain hulls the connected wallet owns (the fleet count for the ledger view). */
 	ownedHullCount: () => number;
+	/** The player's afloat + auto-sailing hulls with class + status, for the Fleet
+	 *  & Ledger pictures. Empty until the world is live. */
+	getOwnedHulls: () => { shipId: string; name: string; shipClass: ShipClass; status: "active" | "on_auto"; isSelf: boolean }[];
 	/** Buy an outfitting good with the off-chain cargo purse (fire-and-forget; the
 	 *  updated ledger arrives via onLedger). No-op unless the world is live. */
 	buyItem: (itemId: string) => void;
@@ -286,25 +294,36 @@ export function createGame(canvas: HTMLCanvasElement, opts: GameOpts = {}): Game
 		onClose: () => fleet.setVisible(false),
 	});
 
+	/** The player's afloat + auto-sailing hulls, each tagged with its class so the
+	 *  UI can show the right ship picture. Reused by the in-world fleet prompt and
+	 *  the React Fleet & Ledger panel. Empty until the world is live. */
+	function getOwnedHulls(): { shipId: string; name: string; shipClass: ShipClass; status: "active" | "on_auto"; isSelf: boolean }[] {
+		const addr = net.address?.toLowerCase();
+		if (!addr) return [];
+		const self = net.selfShipId;
+		return ships
+			.getLatestStates()
+			.filter((s) => s.ownerAddress?.toLowerCase() === addr && (s.status === "active" || s.status === "on_auto"))
+			.map((s) => ({
+				shipId: s.id,
+				name: s.name,
+				shipClass: s.shipClass,
+				status: s.status as "active" | "on_auto",
+				isSelf: s.id === self,
+			}));
+	}
+
 	/** Compute the owned-hull rows from the latest snapshot and open the panel. */
 	function openFleet(): void {
-		const addr = net.address?.toLowerCase();
-		const self = net.selfShipId;
-		const hulls: FleetHull[] = [];
-		if (addr) {
-			const mine = ships
-				.getLatestStates()
-				.filter((s) => s.ownerAddress?.toLowerCase() === addr && (s.status === "active" || s.status === "on_auto"));
-			for (const s of mine) {
-				const spec = SHIP_CLASSES[s.shipClass];
-				hulls.push({
-					shipId: s.id,
-					name: s.name,
-					detail: `${spec?.label ?? s.shipClass} · ${s.status === "active" ? "afloat" : "auto"}`,
-					isSelf: s.id === self,
-				});
-			}
-		}
+		const hulls: FleetHull[] = getOwnedHulls().map((h) => {
+			const spec = SHIP_CLASSES[h.shipClass];
+			return {
+				shipId: h.shipId,
+				name: h.name,
+				detail: `${spec?.label ?? h.shipClass} · ${h.status === "active" ? "afloat" : "auto"}`,
+				isSelf: h.isSelf,
+			};
+		});
 		fleet.show(hulls);
 	}
 
@@ -737,6 +756,14 @@ export function createGame(canvas: HTMLCanvasElement, opts: GameOpts = {}): Game
 		const addr = await wallet.connect();
 		if (addr) ui.toast(`Wallet ${addr.slice(0, 6)}…${addr.slice(-4)} linked`, "#9be8ff");
 		return addr;
+	}
+	/** Drop the app's reference to the connected account (an injected provider can't
+	 *  be force-disconnected, so this clears our signer + notifies onWallet(null),
+	 *  which resets the React wallet state and the buy-to-play gate). */
+	function disconnectWallet(): void {
+		if (!wallet.address) return;
+		wallet.disconnect();
+		ui.toast("Wallet disconnected", "#8aa3bd");
 	}
 	/** Re-read the connected wallet's on-chain hull count (the buy-to-play gate). */
 	async function refreshOwnership(): Promise<number> {
@@ -1435,6 +1462,8 @@ export function createGame(canvas: HTMLCanvasElement, opts: GameOpts = {}): Game
 		cancelJoin,
 		applySettings,
 		connectWallet,
+		disconnectWallet,
+		toast: (msg: string, color?: string) => ui.toast(msg, color),
 		getGamepadStatus: () => input.getGamepadStatus(),
 		openShop: () => dock.show(),
 		closeShop: () => dock.hide(),
@@ -1444,6 +1473,7 @@ export function createGame(canvas: HTMLCanvasElement, opts: GameOpts = {}): Game
 		buyHull,
 		getLedger: () => lastPlayer,
 		ownedHullCount: () => ownedShipCount,
+		getOwnedHulls,
 		buyItem: (itemId: string) => net.buyItem(itemId),
 		equipItem: (itemId: string, equipped: boolean) => net.equipItem(itemId, equipped),
 		dispose() {
