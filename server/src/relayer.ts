@@ -57,13 +57,32 @@ export interface RelayerConfig {
 	rpcUrl?: string;
 }
 
+/**
+ * Tolerate the ways a hex key gets mangled when pasted into a PaaS env field:
+ * surrounding single/double quotes, trailing newline/whitespace, and a missing
+ * `0x`. Returns a 0x-prefixed 64-hex string, or null when it isn't a key at all.
+ */
+function normalizePrivateKey(raw: string | undefined): Hex | null {
+	if (!raw) return null;
+	let pk = raw.trim().replace(/^['"]|['"]$/g, "").trim();
+	if (!pk.startsWith("0x") && /^[0-9a-fA-F]{64}$/.test(pk)) pk = `0x${pk}`;
+	return /^0x[0-9a-fA-F]{64}$/.test(pk) ? (pk as Hex) : null;
+}
+
 function readEnvConfig(): RelayerConfig | null {
 	const { BOUNTY_ESCROW_ADDRESS, USDG_ADDRESS, SHIP_NFT_ADDRESS, LOOT_MINT_ADDRESS } = process.env;
 	const ALLIANCE_ADDRESS = process.env.ALLIANCE_REGISTRY_ADDRESS;
 	const AUCTION_ADDRESS = process.env.AUCTION_HOUSE_ADDRESS;
 	const STORE_ADDRESS = process.env.SHIP_STORE_ADDRESS;
-	const pk = process.env.SERVER_PRIVATE_KEY as Hex | undefined;
-	if (!pk || !BOUNTY_ESCROW_ADDRESS || !USDG_ADDRESS) return null;
+	const pk = normalizePrivateKey(process.env.SERVER_PRIVATE_KEY);
+	if (!pk || !BOUNTY_ESCROW_ADDRESS || !USDG_ADDRESS) {
+		if (process.env.SERVER_PRIVATE_KEY && !pk) {
+			console.warn(
+				"[relayer] SERVER_PRIVATE_KEY is set but is not a valid 0x-prefixed 64-hex key (checked quotes/whitespace/prefix); settling disabled"
+			);
+		}
+		return null;
+	}
 	return {
 		chain: robinhoodTestnet,
 		serverPrivateKey: pk,
